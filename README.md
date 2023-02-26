@@ -1,2 +1,2 @@
 # writings
-Code for support for post
+Code support for posts

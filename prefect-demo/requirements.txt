@@ -1,0 +1,13 @@
+click
+pandas
+requests
+numpy
+tabulate
+python-gitlab
+pyyaml
+snakemd
+prefect
+psycopg2-binary
+SQlAlchemy
+fastapi
+uvicorn[standard]
