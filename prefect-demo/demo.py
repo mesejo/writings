@@ -7,6 +7,10 @@ import yaml
 from sqlalchemy import create_engine
 from yaml import SafeLoader
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 def batched(iterable, n):
     """Batch data into tuples of length n. The last batch may be shorter."""
@@ -62,12 +66,17 @@ def transform_data(data: pd.DataFrame) -> list:
 
     groups = data.groupby("company_id")["segment"].value_counts(normalize=True)
     res = groups.groupby(groups.index.get_level_values(0)).idxmax()
-    return [{"company_id": str(company_id), "segment": segment} for company_id, segment in res]
+    return [
+        {"company_id": str(company_id), "segment": segment}
+        for company_id, segment in res
+    ]
 
 
 def load_data(configuration: dict, data: list):
+    logging.info(f"Starting function: {load_data.__name__}")
     for batch in batched(data, 10):
         batch_update(configuration, batch)
+    logging.info(f"Ending function: {load_data.__name__}")
 
 
 def batch_update(configuration, data):
