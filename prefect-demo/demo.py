@@ -1,13 +1,14 @@
+import logging
+from datetime import timedelta
 from itertools import islice
 
 import click
 import pandas as pd
 import requests
 import yaml
+from prefect import flow, task
 from sqlalchemy import create_engine
 from yaml import SafeLoader
-
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,12 +29,14 @@ def config(file_path: str) -> dict:
     return configuration
 
 
+@task
 def extract_data(configuration: dict) -> pd.DataFrame:
     con = create_engine(configuration["datasource_url"])
     sql = """select * from cars"""
     return pd.read_sql(sql, con)
 
 
+@task
 def transform_data(data: pd.DataFrame) -> list:
     luxury_brands = {
         "Lexus",
@@ -72,17 +75,25 @@ def transform_data(data: pd.DataFrame) -> list:
     ]
 
 
+@flow
 def load_data(configuration: dict, data: list):
-    logging.info(f"Starting function: {load_data.__name__}")
     for batch in batched(data, 10):
         batch_update(configuration, batch)
-    logging.info(f"Ending function: {load_data.__name__}")
 
 
+def cache_key_from_batch(context, parameters):
+    return "-".join(f"{di['company_id']}{di['segment']}" for di in parameters["data"])
+
+
+@task(retries=2,
+      retry_delay_seconds=60,
+      cache_key_fn=cache_key_from_batch,
+      cache_expiration=timedelta(days=1))
 def batch_update(configuration, data):
     requests.put(configuration["url"], json=list(data))
 
 
+@flow
 def main(configuration_path: str):
     configuration = config(configuration_path)
     df = extract_data(configuration)
