@@ -37,32 +37,9 @@ def extract_data(configuration: dict) -> pd.DataFrame:
 
 
 @task
-def transform_data(data: pd.DataFrame) -> list:
-    luxury_brands = {
-        "Lexus",
-        "Volvo",
-        "Aston Martin",
-        "Infiniti",
-        "BMW",
-        "Land Rover",
-        "Maserati",
-        "Ferrari",
-        "Acura",
-        "Lincoln",
-        "Genesis",
-        "Chrysler",
-        "Tesla",
-        "Audi",
-        "Bugatti",
-        "Alfa Romeo",
-        "Jaguar",
-        "Cadillac",
-        "Pontiac",
-        "Mercedes-Benz",
-        "Oldsmobile",
-        "Porsche",
-        "Mini",
-    }
+def transform_data(configuration: dict, data: pd.DataFrame) -> list:
+    """Return the segment of a company based on the cars"""
+    luxury_brands = set(configuration["luxury_brands"])
     data["segment"] = [
         "luxury" if name in luxury_brands else "economy" for name in data["brand"]
     ]
@@ -85,10 +62,12 @@ def cache_key_from_batch(context, parameters):
     return "-".join(f"{di['company_id']}{di['segment']}" for di in parameters["data"])
 
 
-@task(retries=2,
-      retry_delay_seconds=60,
-      cache_key_fn=cache_key_from_batch,
-      cache_expiration=timedelta(days=1))
+@task(
+    retries=2,
+    retry_delay_seconds=60,
+    cache_key_fn=cache_key_from_batch,
+    cache_expiration=timedelta(days=1),
+)
 def batch_update(configuration, data):
     requests.put(configuration["url"], json=list(data))
 
@@ -97,7 +76,7 @@ def batch_update(configuration, data):
 def main(configuration_path: str):
     configuration = config(configuration_path)
     df = extract_data(configuration)
-    data_to_load = transform_data(df)
+    data_to_load = transform_data(configuration, df)
     load_data(configuration, data_to_load)
 
 
