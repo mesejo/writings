@@ -8,6 +8,8 @@
 
 ## Searching by Comparison of Keys
 
+### Searching in Descending sorted lists
+
 ### Data Structures for Searching by Comparison of Keys
 
 ## Hashing
