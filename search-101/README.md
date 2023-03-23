@@ -19,3 +19,6 @@
 ### Dictionaries
 
 ## Retrieval on Secondary Keys
+
+## Further Reading
+https://docs.python.org/3/tutorial/datastructures.html
