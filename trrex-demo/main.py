@@ -1,6 +1,9 @@
 def normalise(text: str, keywords: dict) -> str:
-    # TODO write the
-    return text
+
+    result = text
+    for key, value in keywords.items():
+        result = result.replace(key, value)
+    return result
 
 
 assert (
