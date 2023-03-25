@@ -1,9 +1,13 @@
-def normalise(text: str, keywords: dict) -> str:
+import re
 
-    result = text
-    for key, value in keywords.items():
-        result = result.replace(key, value)
-    return result
+
+def normalise(text: str, keywords: dict) -> str:
+    pattern = re.compile("|".join(keywords))
+
+    def repl(match):
+        return keywords[match.group()]
+
+    return pattern.sub(repl, text)
 
 
 assert (
