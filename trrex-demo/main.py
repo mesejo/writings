@@ -1,8 +1,9 @@
 import re
+import trrex as tx
 
 
 def normalise(text: str, keywords: dict) -> str:
-    pattern = re.compile("|".join(keywords))
+    pattern = re.compile(tx.make(keywords))
 
     def repl(match):
         return keywords[match.group()]
@@ -11,6 +12,6 @@ def normalise(text: str, keywords: dict) -> str:
 
 
 assert (
-    normalise("BCN is very nice city in ESP", {"BCN": "Barcelona", "ESP": "Spain"})
-    == "Barcelona is very nice city in Spain"
+        normalise("BCN is very nice city in ESP", {"BCN": "Barcelona", "ESP": "Spain"})
+        == "Barcelona is very nice city in Spain"
 )
