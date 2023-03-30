@@ -1,52 +1,43 @@
-
 import random
-import string
 
 import perfplot
 import pandas as pd
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from trrex import make
 
-compiled_re, union_re = None, None
+with open("data/words.txt") as infile:
+    all_words = [word.strip() for word in infile]
+
+df = pd.read_csv("data/questions.csv")
 
 
-def get_word_of_length(str_length):
-    # generate a random word of given length
-    return "".join(random.choice(string.ascii_lowercase) for _ in range(str_length))
+def insert_word(w: str, string: str):
+    words = string.split()
+    words.insert(random.randrange(0, len(words)), w)
+    return " ".join(words)
 
 
-all_words = [
-    get_word_of_length(random.choice([3, 4, 5, 6, 7, 8])) for i in range(100000)
-]
+def setup(keyword_count):
+    global all_words, df
+    chosen_words = random.sample(all_words, keyword_count)
+    sentences = [
+        insert_word(random.choice(chosen_words), s) for s in df["question"].astype(str)
+    ]
+
+    compiled_re = make(chosen_words, prefix=r"\b(", suffix=r")\b")
+    union_re = rf"\b({'|'.join(chosen_words)})\b"
+
+    return pd.DataFrame(data=sentences, columns=["question"]), compiled_re, union_re
 
 
-def setup(length):
-    chosen_words = random.sample(all_words, 5000)
-
-    frame = pd.DataFrame(data=[" ".join(chosen_words[pos:pos + 10]) for pos in range(0, len(chosen_words), 10)],
-                         columns=["story"])
-
-    # get unique keywords from the list of words generated.
-    unique_keywords_sublist = list(set(random.sample(all_words, length)))
-
-    global compiled_re
-    compiled_re = make(unique_keywords_sublist, prefix=r"\b(", suffix=r")\b")
-
-    global union_re
-    union_re = fr"\b({'|'.join(unique_keywords_sublist)})\b"
-
-    return frame
+def tx_find(frame, compiled_re, union_re):
+    return frame["question"].str.findall(compiled_re)
 
 
-def tx_find(frame):
-    global compiled_re
-    return frame['story'].str.findall(r'{}'.format(compiled_re))
-
-
-def union_find(frame):
-    global union_re
-    return frame['story'].str.findall(r'{}'.format(union_re))
+def union_find(frame, compiled_re, union_re):
+    return frame["question"].str.findall(union_re)
 
 
 def equality_check(a, b):
@@ -54,14 +45,35 @@ def equality_check(a, b):
 
 
 if __name__ == "__main__":
-    # relative_to = 0,
+    n_range = [keywords_length for keywords_length in range(1000, 25_001, 1000)]
+    labels = ["trrex", "union_regex"]
     out = perfplot.bench(
         setup=setup,
-        n_range=[keywords_length for keywords_length in range(1000, 25001, 1000)],
+        n_range=n_range,
         kernels=[tx_find, union_find],
-        labels=["trrex", "union_regex"],
-        xlabel="len(keywords)",
+        labels=labels,
+        xlabel="count(keywords)",
         equality_check=equality_check,
+        show_progress=True,
     )
-    out.show(relative_to=0)
-    out.save("perf.png", transparent=True, bbox_inches="tight", relative_to=0)
+
+    data = []
+    for label, row in zip(labels, out.timings_s):
+        data.extend([n, label, val] for n, val in zip(n_range, row))
+
+    plot_df = pd.DataFrame(
+        data=data, columns=["count(keywords)", "patterns", "timings[s]"]
+    )
+    sns.set_style("ticks")
+    sns.lineplot(
+        plot_df,
+        x="count(keywords)",
+        y="timings[s]",
+        style="patterns",
+        markers=["o", "v"],
+        palette=["g", "r"],
+        hue="patterns",
+    )
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("perf.png", dpi=400)

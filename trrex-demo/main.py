@@ -14,10 +14,10 @@ df = pd.DataFrame({
 
 emotions = ['terrible', 'awful', 'loved', 'lovable', 'great', 'hilarious', 'lacking', 'amazing']
 
+query = rf'\b({"|".join(emotions)})\b'
+expected = df['opinions'].str.findall(query)
 
-query = '|'.join(emotions)
-print(rf'\b({query})\b')
-df['emotions'] = df['opinions'].str.findall(rf'\b({query})\b')
-# query = tx.make(emotions, prefix=r"\b(", suffix=r")\b")
-# df['emotions'] = df['opinions'].str.findall(query)
-print(df)
+query = tx.make(emotions, prefix=r"\b(", suffix=r")\b")
+actual = df['opinions'].str.findall(query)
+
+assert pd.Series.equals(expected, actual)

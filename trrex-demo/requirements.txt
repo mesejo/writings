@@ -1,2 +1,4 @@
 trrex==0.0.5
 perfplot
+pandas
+seaborn
