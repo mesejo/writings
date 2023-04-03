@@ -1,9 +1,10 @@
 import heapq
+from typing import List
 
 
-def heap_sort(seq):
+def heap_sort(arr: List[int]) -> List[int]:
 
-    shallow = seq[:]
+    shallow = arr[:]
     heapq.heapify(shallow)
     return [heapq.heappop(shallow) for _ in range(len(shallow))]
 
