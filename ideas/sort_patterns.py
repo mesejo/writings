@@ -1,6 +1,10 @@
-from sre_constants import LITERAL, IN, NEGATE, BRANCH, CATEGORY, CATEGORY_DIGIT, RANGE, MAX_REPEAT, SUBPATTERN
+import re
+from io import StringIO
+from sre_constants import LITERAL, IN, NEGATE, BRANCH, CATEGORY, CATEGORY_DIGIT, RANGE, MAX_REPEAT, SUBPATTERN, \
+    MAXREPEAT
 from sre_parse import parse, _parse, Tokenizer, State, IN, SubPattern
-from ideas.trie import Trie
+from ideas.trie import Trie, TrieNode
+
 
 def sub_parse(source, state, verbose, nested):
     items = []
@@ -24,6 +28,9 @@ def extract_max_repeat_node(val):
             p += extract_literal_node(v)
         elif op == IN:
             p += extract_in_node(v)
+
+    if end == MAXREPEAT:
+        return f"{p}+"
 
     return rf"{p}{{{start},{end}}}"
 
@@ -86,6 +93,7 @@ def extract_in_node(val):
     return ii if category and len(val) == 1 else f"[{ii}]"
 
 
+assert [["a", "b+", "c"]] == to_list(r"ab+c")
 assert [["a", "b", r"\d"], ["b"]] == to_list(r"(ab\d)|b")
 assert [["a", "b", r"[c-z]"], ["b"]] == to_list(r"(ab[c-z])|b")
 assert [["a", "b", r"[c-z]", "a{1,3}"], ["b"]] == to_list(r"(ab[c-z]a{1,3})|b")
@@ -104,58 +112,65 @@ assert [["[a-exyz]"]] == to_list("[a-exyz]")
 assert [[r"[a-e\d]"]] == to_list(r"[a-e\d]")
 assert [["a{1,3}"]] == to_list("a{1,3}")
 
-patterns = ['ab+c', 'ab+-', 'ac\d+', 'a\d+']
+patterns = ['ab+',
+            'ab+e',
+            'ac\d+',
+            'a\d+']
 
 trie = Trie()
 for p in patterns:
     for e in to_list(p):
         trie.insert(e)
 
+_OPTION = ("?", TrieNode())
+_OPEN_PARENTHESIS = ("(?:", TrieNode())
+_CLOSE_PARENTHESIS = (")", TrieNode())
+_OPEN_BRACKETS = ("[", TrieNode())
+_CLOSE_BRACKETS = ("]", TrieNode())
+_ALTERNATION = ("|", TrieNode())
 
 
-# for e in to_list("a{1,3}bc|bcd|a"):
-#     trie.insert(e)
-# for e in to_list("a{1,3}fd"):
-#     trie.insert(e)
+def _to_regex(t):
+    stack = [("", t.root)]
+    cumulative = StringIO()
 
-print(trie)
+    while stack:
+        char, node = stack.pop()
+        cumulative.write(char)
 
-# # import re
-# # import sre_constants
-# # from sre_constants import IN, BRANCH, RANGE, LITERAL, MAX_REPEAT
-# # from sre_parse import parse, SubPattern
-# #
-# # pat = parse("(ab){1,3}")
-# # print(pat, type(pat))
-# #
-# #
-# # def generate_key_in(t):
-# #     op, av = t
-# #     if op == RANGE:
-# #         return av[0]
-# #     elif op == LITERAL:
-# #         return av
-# #
-# #
-# # def generate_key(pattern):
-# #     for op, av in pattern.data:
-# #         if op == sre_constants.LITERAL:
-# #             return "".join(map(lambda x: chr(x[1]), pattern.data))
-# #         if op is IN:
-# #             return chr(min(map(generate_key_in, av)))
-# #         elif op is BRANCH:
-# #             return min(generate_key(a) for a in av[1])
-# #         elif op is MAX_REPEAT:
-# #             start, end, pat = av
-# #             if isinstance(pat, SubPattern):
-# #                 return generate_key(pat)
-# #             else:
-# #                 print(pat)
-# #
-# #
-# # k = generate_key(pat)
-# # print(k)
-#
-# import re
-#
-# re.compile(r"(a(?:b)){1,3}(c)", re.DEBUG)
+        if not node.children:
+            continue  # skip
+
+        if node.is_word:
+            stack.append(_OPTION)
+
+        multiple = []
+        for key, child in node.children.items():
+            multiple.append((key, child))
+
+        requires_alternation = len(multiple) > 1
+        requires_group = requires_alternation or node.is_word
+
+        if requires_group:
+            stack.append(_CLOSE_PARENTHESIS)
+
+        if multiple:
+            head, *tail = multiple
+            stack.append(head)
+
+            for child in tail:
+                stack.append(_ALTERNATION)
+                stack.append(child)
+
+        if requires_group:
+            stack.append(_OPEN_PARENTHESIS)
+
+    return cumulative.getvalue()
+
+pat = _to_regex(trie)
+pat = re.compile(pat)
+print(pat)
+for s in ["a123", "ac1234", "ab", "abe", "abbbe", "abbb"]:
+    m = pat.match(s)
+    print(m)
+
